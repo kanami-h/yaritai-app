@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>やりたいことアプリ - プロトタイプ</title>
+<style>
+  /* ===== 全体 ===== */
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body {
+    font-family: -apple-system, "Hiragino Sans", "Hiragino Kaku Gothic ProN", sans-serif;
+    background: #e9e6e1;
+    display: flex; flex-direction: column; align-items: center;
+    min-height: 100vh; padding: 24px 0;
+  }
+  .note { color: #8a857d; font-size: 12px; margin-bottom: 12px; text-align: center; line-height: 1.6; }
+
+  /* ===== iPhoneの枠 ===== */
+  .phone {
+    width: 390px; height: 780px; background: #faf9f7;
+    border-radius: 44px; border: 10px solid #1c1c1e;
+    overflow: hidden; position: relative;
+    box-shadow: 0 24px 60px rgba(0,0,0,.25);
+    display: flex; flex-direction: column;
+  }
+  .statusbar { height: 44px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600; color: #2c2a27; }
+
+  /* ===== ヘッダー ===== */
+  header { padding: 4px 20px 10px; flex-shrink: 0; }
+  header h1 { font-size: 26px; font-weight: 800; color: #2c2a27; letter-spacing: .01em; }
+  header p { font-size: 12px; color: #a09a90; margin-top: 2px; }
+
+  /* ===== フィルタタブ ===== */
+  .filters { display: flex; gap: 8px; padding: 6px 20px 12px; flex-shrink: 0; }
+  .filter {
+    border: none; background: #efece7; color: #6f6a62;
+    font-size: 13px; font-weight: 600; padding: 7px 14px; border-radius: 20px; cursor: pointer;
+    font-family: inherit; transition: all .15s;
+  }
+  .filter.active { background: #2c2a27; color: #fff; }
+
+  /* ===== カード一覧 ===== */
+  .list { flex: 1; overflow-y: auto; padding: 2px 20px 90px; }
+  .card {
+    background: #fff; border-radius: 18px; padding: 14px;
+    display: flex; gap: 12px; align-items: center;
+    margin-bottom: 12px; cursor: pointer;
+    box-shadow: 0 1px 4px rgba(60,50,30,.06);
+    transition: transform .12s;
+  }
+  .card:active { transform: scale(.98); }
+  .thumb {
+    width: 56px; height: 56px; border-radius: 14px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center; font-size: 28px;
+  }
+  .card-body { flex: 1; min-width: 0; }
+  .card-title { font-size: 15px; font-weight: 700; color: #2c2a27; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .card-meta { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
+  .chip { font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 10px; background: #f2efe9; color: #7d776d; }
+  .chip.date { background: #fdeee4; color: #c96f3a; }
+  .chip.soon { background: #c96f3a; color: #fff; }
+  .chip.done-chip { background: #e6f0e6; color: #4e7d52; }
+  .card.done { opacity: .55; }
+  .card.done .card-title { text-decoration: line-through; }
+  .empty { text-align: center; color: #b5afa5; font-size: 13px; padding: 60px 20px; line-height: 1.8; }
+
+  /* ===== 追加ボタン ===== */
+  .fab {
+    position: absolute; bottom: 88px; right: 20px;
+    width: 56px; height: 56px; border-radius: 28px; border: none;
+    background: #c96f3a; color: #fff; font-size: 28px; cursor: pointer;
+    box-shadow: 0 6px 16px rgba(201,111,58,.4); z-index: 5;
+  }
+
+  /* ===== 下のバー（デモ操作用） ===== */
+  .demobar {
+    position: absolute; bottom: 0; left: 0; right: 0; z-index: 5;
+    background: rgba(250,249,247,.92); backdrop-filter: blur(8px);
+    border-top: 1px solid #eae6df; padding: 12px 16px 22px;
+  }
+  .demobar p { font-size: 10px; color: #b5afa5; margin-bottom: 8px; text-align: center; }
+  .demobar .row { display: flex; gap: 8px; }
+  .demobtn {
+    flex: 1; border: 1.5px dashed #cfc9bf; background: none; border-radius: 12px;
+    padding: 9px 6px; font-size: 12px; font-weight: 600; color: #6f6a62;
+    cursor: pointer; font-family: inherit;
+  }
+
+  /* ===== シート（下からスライド） ===== */
+  .scrim {
+    position: absolute; inset: 0; background: rgba(30,25,20,.4);
+    opacity: 0; pointer-events: none; transition: opacity .25s; z-index: 10;
+  }
+  .scrim.show { opacity: 1; pointer-events: auto; }
+  .sheet {
+    position: absolute; left: 0; right: 0; bottom: 0; z-index: 11;
+    background: #faf9f7; border-radius: 24px 24px 0 0;
+    padding: 12px 20px 30px; transform: translateY(105%);
+    transition: transform .3s cubic-bezier(.3,1.1,.4,1);
+    max-height: 88%; overflow-y: auto;
+  }
+  .sheet.show { transform: translateY(0); }
+  .grabber { width: 36px; height: 5px; border-radius: 3px; background: #d9d4cb; margin: 0 auto 14px; }
+  .sheet h2 { font-size: 18px; font-weight: 800; color: #2c2a27; margin-bottom: 4px; }
+  .sheet .sub { font-size: 12px; color: #a09a90; margin-bottom: 16px; }
+
+  .urlbox {
+    background: #efece7; border-radius: 12px; padding: 10px 12px;
+    font-size: 12px; color: #7d776d; word-break: break-all; margin-bottom: 16px;
+  }
+
+  /* AI読み取り演出 */
+  .ai-status { display: flex; align-items: center; gap: 10px; padding: 14px 4px; }
+  .spinner {
+    width: 18px; height: 18px; border-radius: 50%;
+    border: 2.5px solid #eadfd5; border-top-color: #c96f3a;
+    animation: spin .8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .ai-status span { font-size: 13px; color: #8a857d; }
+  .ai-badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: 10px; font-weight: 700; color: #c96f3a;
+    background: #fdeee4; padding: 3px 8px; border-radius: 8px; margin-left: 6px;
+  }
+
+  /* フォーム */
+  .field { margin-bottom: 14px; }
+  .field label { display: block; font-size: 12px; font-weight: 700; color: #8a857d; margin-bottom: 6px; }
+  .field input, .field select {
+    width: 100%; border: 1.5px solid #e5e0d8; border-radius: 12px;
+    padding: 11px 12px; font-size: 15px; font-family: inherit; color: #2c2a27;
+    background: #fff; outline: none;
+  }
+  .field input:focus { border-color: #c96f3a; }
+  .daterow { display: flex; gap: 10px; }
+  .daterow .field { flex: 1; }
+  .cats { display: flex; gap: 8px; flex-wrap: wrap; }
+  .cat {
+    border: 1.5px solid #e5e0d8; background: #fff; border-radius: 20px;
+    padding: 8px 14px; font-size: 13px; font-weight: 600; color: #6f6a62;
+    cursor: pointer; font-family: inherit;
+  }
+  .cat.active { background: #2c2a27; border-color: #2c2a27; color: #fff; }
+
+  .primary {
+    width: 100%; border: none; background: #c96f3a; color: #fff;
+    font-size: 16px; font-weight: 700; padding: 15px; border-radius: 16px;
+    cursor: pointer; font-family: inherit; margin-top: 6px;
+  }
+  .secondary {
+    width: 100%; border: none; background: none; color: #a09a90;
+    font-size: 13px; font-weight: 600; padding: 12px; cursor: pointer; font-family: inherit;
+  }
+
+  /* 詳細シート */
+  .detail-thumb { font-size: 44px; margin-bottom: 8px; }
+  .remind-list { margin: 14px 0 18px; }
+  .remind-item {
+    display: flex; align-items: center; gap: 10px;
+    background: #fff; border-radius: 14px; padding: 12px 14px; margin-bottom: 8px;
+  }
+  .remind-item .bell { font-size: 18px; }
+  .remind-item .txt { flex: 1; }
+  .remind-item .txt b { display: block; font-size: 13px; color: #2c2a27; }
+  .remind-item .txt span { font-size: 11px; color: #a09a90; }
+
+  /* 通知プレビュー */
+  .push {
+    position: absolute; top: 54px; left: 12px; right: 12px; z-index: 20;
+    background: rgba(255,255,255,.97); border-radius: 18px; padding: 12px 14px;
+    box-shadow: 0 10px 30px rgba(0,0,0,.18);
+    display: flex; gap: 10px; align-items: flex-start;
+    transform: translateY(-130%); transition: transform .4s cubic-bezier(.3,1.1,.4,1);
+  }
+  .push.show { transform: translateY(0); }
+  .push .appicon {
+    width: 36px; height: 36px; border-radius: 9px; background: #c96f3a;
+    display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0;
+  }
+  .push b { font-size: 13px; color: #1c1c1e; display: block; }
+  .push span { font-size: 12px; color: #55524d; line-height: 1.5; }
+
+  /* 完了のお祝い */
+  .cheer {
+    position: absolute; inset: 0; z-index: 30; display: none;
+    align-items: center; justify-content: center; flex-direction: column;
+    background: rgba(250,249,247,.94); text-align: center;
+  }
+  .cheer.show { display: flex; animation: pop .3s; }
+  @keyframes pop { from { opacity: 0; transform: scale(.94); } }
+  .cheer .big { font-size: 64px; margin-bottom: 12px; }
+  .cheer h3 { font-size: 20px; font-weight: 800; color: #2c2a27; margin-bottom: 6px; }
+  .cheer p { font-size: 13px; color: #8a857d; }
+</style>
+</head>
+<body>
+
+<p class="note">「やりたいことアプリ」HTMLモック（段ボール模型）<br>下の点線ボタンで「SNSからシェアされた場面」を再現できます</p>
+
+<div class="phone">
+  <div class="statusbar">21:36</div>
+
+  <!-- 通知プレビュー -->
+  <div class="push" id="push">
+    <div class="appicon">✦</div>
+    <div><b id="pushTitle"></b><span id="pushBody"></span></div>
+  </div>
+
+  <header>
+    <h1>やりたいこと</h1>
+    <p id="counter"></p>
+  </header>
+
+  <div class="filters" id="filters">
+    <button class="filter active" data-f="all">すべて</button>
+    <button class="filter" data-f="soon">もうすぐ</button>
+    <button class="filter" data-f="nodate">日付なし</button>
+    <button class="filter" data-f="done">行った！</button>
+  </div>
+
+  <div class="list" id="list"></div>
+
+  <button class="fab" onclick="openManual()">＋</button>
+
+  <div class="demobar">
+    <p>▼ デモ用：実際はTwitter/インスタの共有シートから届く想定 ▼</p>
+    <div class="row">
+      <button class="demobtn" onclick="simulateShare('exhibit')">美術展のURLをシェア</button>
+      <button class="demobtn" onclick="simulateShare('food')">ご飯屋さんのURLをシェア</button>
+      <button class="demobtn" onclick="demoPush()">通知が届く場面を見る</button>
+    </div>
+  </div>
+
+  <!-- 保存シート -->
+  <div class="scrim" id="scrim" onclick="closeSheets()"></div>
+  <div class="sheet" id="saveSheet">
+    <div class="grabber"></div>
+    <h2 id="saveTitle">スクラップする</h2>
+    <p class="sub" id="saveSub"></p>
+    <div class="urlbox" id="urlbox" style="display:none"></div>
+    <div class="ai-status" id="aiStatus" style="display:none">
+      <div class="spinner"></div><span>AIがページから日付とタイトルを読み取り中…</span>
+    </div>
+    <div id="form" style="display:none">
+      <div class="field">
+        <label>タイトル <span class="ai-badge" id="aiBadgeTitle">✦ AIが読み取り・タップで修正可</span></label>
+        <input type="text" id="fTitle">
+      </div>
+      <div class="field">
+        <label>カテゴリ</label>
+        <div class="cats" id="cats"></div>
+      </div>
+      <div class="daterow">
+        <div class="field">
+          <label>開始日 <span class="ai-badge" id="aiBadgeDate">✦ AI</span></label>
+          <input type="date" id="fStart">
+        </div>
+        <div class="field">
+          <label>終了日</label>
+          <input type="date" id="fEnd">
+        </div>
+      </div>
+      <button class="primary" onclick="saveScrap()">保存する</button>
+      <button class="secondary" onclick="closeSheets()">やめる</button>
+    </div>
+  </div>
+
+  <!-- 詳細シート -->
+  <div class="sheet" id="detailSheet">
+    <div class="grabber"></div>
+    <div class="detail-thumb" id="dEmoji"></div>
+    <h2 id="dTitle"></h2>
+    <p class="sub" id="dMeta"></p>
+    <div class="remind-list" id="dReminds"></div>
+    <button class="primary" id="doneBtn" onclick="markDone()">行った！🎉</button>
+    <button class="secondary" onclick="closeSheets()">閉じる</button>
+  </div>
+
+  <!-- 完了のお祝い -->
+  <div class="cheer" id="cheer" onclick="this.classList.remove('show')">
+    <div class="big">🎉</div>
+    <h3>やりたいこと、ひとつ達成！</h3>
+    <p>タップで戻る</p>
+  </div>
+</div>
+
+<script>
+// ===== ダミーデータ =====
+const CATS = { exhibit: {label:'展示', emoji:'🖼️', bg:'#f3e8f0'}, food: {label:'ご飯', emoji:'🍜', bg:'#fdeee4'}, movie: {label:'映画', emoji:'🎬', bg:'#e8edf3'}, other: {label:'その他', emoji:'📌', bg:'#f2efe9'} };
+const today = new Date('2026-07-07');
+let scraps = [
+  { id:1, title:'モネ 睡蓮のとき展', cat:'exhibit', start:'2026-07-10', end:'2026-09-23', done:false },
+  { id:2, title:'神保町の老舗カレー「ボンディ」', cat:'food', start:null, end:null, done:false },
+  { id:3, title:'ル・コルビュジエ展', cat:'exhibit', start:'2026-06-01', end:'2026-07-13', done:false },
+  { id:4, title:'蔵前の抹茶ラテのお店', cat:'food', start:null, end:null, done:true },
+];
+let filter = 'all', currentId = null, nextId = 5;
+
+// ===== 一覧の描画 =====
+function daysUntil(d){ return Math.ceil((new Date(d) - today) / 86400000); }
+function isSoon(s){
+  if (s.done) return false;
+  if (s.start && daysUntil(s.start) >= 0 && daysUntil(s.start) <= 7) return true;
+  if (s.end && daysUntil(s.end) >= 0 && daysUntil(s.end) <= 7) return true;
+  return false;
+}
+function render(){
+  const list = document.getElementById('list');
+  let items = scraps.filter(s =>
+    filter==='all' ? !s.done :
+    filter==='soon' ? isSoon(s) :
+    filter==='nodate' ? (!s.start && !s.done) : s.done
+  );
+  document.getElementById('counter').textContent =
+    `やりたいこと ${scraps.filter(s=>!s.done).length}件 ・ 達成 ${scraps.filter(s=>s.done).length}件`;
+  if (!items.length) {
+    list.innerHTML = `<div class="empty">ここにはまだ何もありません。<br>SNSで気になるものを見つけたら<br>共有シートからスクラップしてみて。</div>`;
+    return;
+  }
+  list.innerHTML = items.map(s => {
+    const c = CATS[s.cat];
+    let dateChip = '';
+    if (s.done) dateChip = `<span class="chip done-chip">達成 🎉</span>`;
+    else if (s.end && daysUntil(s.end) >= 0 && daysUntil(s.end) <= 7)
+      dateChip = `<span class="chip soon">あと${daysUntil(s.end)}日で終了</span>`;
+    else if (s.start && daysUntil(s.start) >= 0 && daysUntil(s.start) <= 7)
+      dateChip = `<span class="chip soon">あと${daysUntil(s.start)}日で開始</span>`;
+    else if (s.start) dateChip = `<span class="chip date">${fmt(s.start)}〜${s.end?fmt(s.end):''}</span>`;
+    else dateChip = `<span class="chip">いつでも</span>`;
+    return `<div class="card ${s.done?'done':''}" onclick="openDetail(${s.id})">
+      <div class="thumb" style="background:${c.bg}">${c.emoji}</div>
+      <div class="card-body">
+        <div class="card-title">${s.title}</div>
+        <div class="card-meta"><span class="chip">${c.label}</span>${dateChip}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+function fmt(d){ const x = new Date(d); return `${x.getMonth()+1}/${x.getDate()}`; }
+
+// ===== フィルタ =====
+document.getElementById('filters').addEventListener('click', e => {
+  if (!e.target.dataset.f) return;
+  filter = e.target.dataset.f;
+  document.querySelectorAll('.filter').forEach(b => b.classList.toggle('active', b.dataset.f===filter));
+  render();
+});
+
+// ===== 共有シートのシミュレーション =====
+const SAMPLES = {
+  exhibit: { url:'https://x.com/museum_info/status/18293…「モネ 睡蓮のとき」国立西洋美術館で開催', title:'モネ 睡蓮のとき展（国立西洋美術館）', cat:'exhibit', start:'2026-07-10', end:'2026-09-23' },
+  food: { url:'https://www.instagram.com/p/Cx8s2… 渋谷の裏路地にある薪火イタリアン🔥', title:'渋谷の薪火イタリアン', cat:'food', start:null, end:null },
+};
+function simulateShare(kind){
+  const s = SAMPLES[kind];
+  document.getElementById('saveTitle').textContent = 'スクラップする';
+  document.getElementById('saveSub').textContent = '共有シートからURLを受け取りました';
+  const ub = document.getElementById('urlbox');
+  ub.style.display = 'block'; ub.textContent = s.url;
+  document.getElementById('aiStatus').style.display = 'flex';
+  document.getElementById('form').style.display = 'none';
+  showSheet('saveSheet');
+  setTimeout(() => {  // AI読み取りの演出（実物はここでClaude APIを呼ぶ）
+    document.getElementById('aiStatus').style.display = 'none';
+    fillForm(s, true);
+  }, 1600);
+}
+function openManual(){
+  document.getElementById('saveTitle').textContent = '自分で追加する';
+  document.getElementById('saveSub').textContent = 'URLがなくてもメモとして残せます';
+  document.getElementById('urlbox').style.display = 'none';
+  document.getElementById('aiStatus').style.display = 'none';
+  fillForm({ title:'', cat:'other', start:null, end:null }, false);
+  showSheet('saveSheet');
+}
+function fillForm(s, ai){
+  document.getElementById('form').style.display = 'block';
+  document.getElementById('fTitle').value = s.title;
+  document.getElementById('fStart').value = s.start || '';
+  document.getElementById('fEnd').value = s.end || '';
+  document.getElementById('aiBadgeTitle').style.display = ai ? 'inline-flex' : 'none';
+  document.getElementById('aiBadgeDate').style.display = (ai && s.start) ? 'inline-flex' : 'none';
+  const cats = document.getElementById('cats');
+  cats.innerHTML = Object.entries(CATS).map(([k,c]) =>
+    `<button class="cat ${k===s.cat?'active':''}" data-c="${k}" onclick="pickCat(this)">${c.emoji} ${c.label}</button>`).join('');
+}
+function pickCat(el){
+  document.querySelectorAll('.cat').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');
+}
+function saveScrap(){
+  const title = document.getElementById('fTitle').value.trim() || '（無題）';
+  scraps.unshift({
+    id: nextId++, title,
+    cat: document.querySelector('.cat.active')?.dataset.c || 'other',
+    start: document.getElementById('fStart').value || null,
+    end: document.getElementById('fEnd').value || null,
+    done: false,
+  });
+  closeSheets(); filter='all';
+  document.querySelectorAll('.filter').forEach(b => b.classList.toggle('active', b.dataset.f==='all'));
+  render();
+}
+
+// ===== 詳細 =====
+function openDetail(id){
+  currentId = id;
+  const s = scraps.find(x=>x.id===id); const c = CATS[s.cat];
+  document.getElementById('dEmoji').textContent = c.emoji;
+  document.getElementById('dTitle').textContent = s.title;
+  document.getElementById('dMeta').textContent = s.start ? `${fmt(s.start)} 〜 ${s.end?fmt(s.end):''}・${c.label}` : `日付なし・${c.label}`;
+  const r = document.getElementById('dReminds');
+  let items = [];
+  if (s.start) items.push({icon:'🔔', b:'開始3日前にお知らせ', s:`${fmt(addDays(s.start,-3))} に「もうすぐ始まるよ」`});
+  if (s.end) items.push({icon:'⏰', b:'終了1週間前にお知らせ', s:`${fmt(addDays(s.end,-7))} に「行き逃さないで」`});
+  if (!s.start && !s.end) items.push({icon:'💭', b:'ときどき思い出させる', s:'1ヶ月後に「これ行った？」と聞きます'});
+  r.innerHTML = items.map(i=>`<div class="remind-item"><span class="bell">${i.icon}</span><div class="txt"><b>${i.b}</b><span>${i.s}</span></div></div>`).join('');
+  document.getElementById('doneBtn').style.display = s.done ? 'none' : 'block';
+  showSheet('detailSheet');
+}
+function addDays(d,n){ const x=new Date(d); x.setDate(x.getDate()+n); return x.toISOString().slice(0,10); }
+function markDone(){
+  scraps.find(x=>x.id===currentId).done = true;
+  closeSheets(); render();
+  document.getElementById('cheer').classList.add('show');
+}
+
+// ===== 通知プレビュー =====
+const PUSHES = [
+  { t:'もうすぐ始まるよ', b:'「モネ 睡蓮のとき展」が3日後（7/10）から。予定に入れておく？' },
+  { t:'行き逃さないで！', b:'「ル・コルビュジエ展」は7/13まで。今週末がラストチャンス。' },
+  { t:'これ、行った？', b:'1ヶ月前に保存した「神保町の老舗カレー」まだ行けてないみたい。' },
+];
+let pushIdx = 0;
+function demoPush(){
+  const p = PUSHES[pushIdx++ % PUSHES.length];
+  document.getElementById('pushTitle').textContent = p.t;
+  document.getElementById('pushBody').textContent = p.b;
+  const el = document.getElementById('push');
+  el.classList.add('show');
+  setTimeout(()=>el.classList.remove('show'), 3500);
+}
+
+// ===== シート開閉 =====
+function showSheet(id){
+  document.getElementById('scrim').classList.add('show');
+  document.getElementById(id).classList.add('show');
+}
+function closeSheets(){
+  document.getElementById('scrim').classList.remove('show');
+  document.querySelectorAll('.sheet').forEach(s=>s.classList.remove('show'));
+}
+
+render();
+</script>
+</body>
+</html>
